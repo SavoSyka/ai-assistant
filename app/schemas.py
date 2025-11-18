@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field, root_validator
+from pydantic import BaseModel, Field, model_validator
 
 from .models import LeadStatus
 
@@ -10,9 +10,9 @@ class LeadCreate(BaseModel):
     phone: str | None = Field(default=None, min_length=3, max_length=30)
     telegram_username: str | None = Field(default=None, min_length=3, max_length=64)
 
-    @root_validator
-    def at_least_one_contact(cls, values: dict[str, str | None]) -> dict[str, str | None]:
-        if not values.get("phone") and not values.get("telegram_username"):
+    @model_validator(mode="after")
+    def ensure_contact(cls, values: "LeadCreate") -> "LeadCreate":
+        if not values.phone and not values.telegram_username:
             raise ValueError("Укажите номер телефона или Telegram username (или оба).")
         return values
 
