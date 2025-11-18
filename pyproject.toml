@@ -1,0 +1,30 @@
+[project]
+name = "ai-assistant"
+version = "0.1.0"
+description = "Lead capture API with Telegram outreach automation."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
+    "sqlmodel>=0.0.16",
+    "pyrogram>=2.0.106",
+    "tgcrypto>=1.2.5",
+    "pydantic-settings>=2.2.1",
+    "httpx>=0.27.0",
+    "openai>=1.30.0",
+    "psycopg[binary]>=3.1.18"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "httpx>=0.27.0"
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["app"]
