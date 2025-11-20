@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import re
 import logging
+import re
 from typing import Any, Dict, Iterable, Sequence
+from urllib.parse import parse_qs
 
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
@@ -148,9 +149,16 @@ async def create_lead_from_tilda(request: Request) -> dict[str, str]:
     return {"status": "accepted"}
 
 @router.post("/tilda", status_code=status.HTTP_200_OK)
-async def create_lead_from_tilda_any(request: Request):
+async def create_lead_from_tilda_any(request: Request) -> LeadRead:
+    """
+    Упрощённый вебхук для Tilda:
+    - парсим только имя, телефон и Telegram-ник;
+    - нормализуем контакты;
+    - создаём Lead в БД (статус pending);
+    - всегда возвращаем 2xx, чтобы Tilda не ретраила.
+    """
     try:
-        payload = await request.json()
+        payload: Any = await request.json()
     except Exception:
         try:
             form = await request.form()
@@ -159,11 +167,43 @@ async def create_lead_from_tilda_any(request: Request):
             raw = await request.body()
             payload = raw.decode("utf-8", errors="ignore")
 
+    raw_payload = payload
+
+    # Приводим к простому словарю строк: ключи в нижнем регистре.
+    fields: Dict[str, str] = {}
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            if isinstance(value, (list, tuple)):
+                value = value[0] if value else ""
+            fields[key.strip().lower()] = str(value).strip()
+    elif isinstance(payload, str):
+        parsed = parse_qs(payload, keep_blank_values=True)
+        for key, values in parsed.items():
+            if not values:
+                continue
+            fields[key.strip().lower()] = values[0].strip()
+
+    name = fields.get("name")
+    phone = fields.get("phone")
+    username = fields.get("tg-nickname") or fields.get("telegram_username") or fields.get("telegram")
+
+    if not name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Не удалось распознать имя заявки из данных Tilda.",
+        )
+
+    phone, username = _prepare_contact(phone, username)
+
+    lead = _persist_lead(name, phone, username)
+
     client_addr = request.client.host if request.client else "unknown"
     logger.info(
-        "Tilda endpoint %s payload accepted from %s: %s",
+        "Tilda endpoint %s created lead %s from %s: %s",
         request.url.path,
+        lead.id,
         client_addr,
-        payload,
+        raw_payload,
     )
-    return {"status": "accepted"}
+
+    return lead

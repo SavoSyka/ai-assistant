@@ -58,13 +58,13 @@ class TelegramLeadService:
             logger.exception("Failed to generate greeting via GPT for lead %s, using fallback", lead.id)
             greeting = settings.greeting_template.format(name=lead.name)
 
-        user, used_username = await self._resolve_user_for_lead(lead)
+        user, used_phone = await self._resolve_user_for_lead(lead)
         if not user:
             logger.warning("Telegram user not found for lead %s", lead.id)
             self._update_lead_status(lead.id, LeadStatus.rejected, note="User not found in Telegram")
             return
 
-        delivered_user = await self._deliver_greeting(lead, user, greeting, used_username)
+        delivered_user = await self._deliver_greeting(lead, user, greeting, used_phone)
         if not delivered_user:
             return
 
@@ -125,33 +125,39 @@ class TelegramLeadService:
             return None
 
     async def _resolve_user_for_lead(self, lead: Lead) -> tuple[User | None, bool]:
+        # Сначала пробуем найти по телефону (импорт контакта),
+        # если не удалось — пробуем по username.
+        if lead.phone:
+            user = await self._import_user_by_phone(lead)
+            if user:
+                return user, True  # True = использовали телефон
         if lead.telegram_username:
             user = await self._get_user_by_username(lead.telegram_username)
             if user:
-                return user, True
-        user = await self._import_user_by_phone(lead)
-        return user, False
+                return user, False
+        return None, False
 
     async def _deliver_greeting(
         self,
         lead: Lead,
         user: User,
         greeting: str,
-        used_username: bool,
+        used_phone: bool,
     ) -> User | None:
         try:
             await self._client.send_message(user.id, greeting)
             return user
         except RPCError as exc:
             logger.warning("Failed to send greeting to lead %s: %s", lead.id, exc)
-            if used_username and lead.phone:
-                fallback_user = await self._import_user_by_phone(lead)
+            # Если изначально писали по телефону, пробуем запасным вариантом username.
+            if used_phone and lead.telegram_username:
+                fallback_user = await self._get_user_by_username(lead.telegram_username)
                 if fallback_user:
                     try:
                         await self._client.send_message(fallback_user.id, greeting)
                         return fallback_user
                     except RPCError as fallback_exc:
-                        logger.exception("Fallback send to lead %s failed: %s", lead.id, fallback_exc)
+                        logger.exception("Fallback send to lead %s via username failed: %s", lead.id, fallback_exc)
             self._update_lead_status(lead.id, LeadStatus.rejected, note=str(exc))
             return None
 
