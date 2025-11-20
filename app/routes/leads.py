@@ -119,9 +119,38 @@ def create_lead(payload: LeadCreate) -> LeadRead:
 
 @router.post("/webhooks/tilda", status_code=status.HTTP_200_OK)
 async def create_lead_from_tilda(request: Request) -> dict[str, str]:
+    """
+    Принимаем любые данные, которые пришли — JSON, FORM, RAW — чтобы Tilda всегда проходила.
+    """
+    try:
+        # 1. Попытка прочитать JSON
+        payload = await request.json()
+    except Exception:
+        try:
+            # 2. Попытка прочитать как form-data (Tilda часто шлет form-data)
+            form = await request.form()
+            payload = dict(form)
+        except Exception:
+            # 3. Если ничего не сработало — читаем "сырое" тело
+            raw = await request.body()
+            payload = raw.decode("utf-8", errors="ignore")
+
+    logger.info("Tilda webhook payload: %s", payload)
+
+    # ВСЕГДА возвращаем 200 OK
+    return {"status": "accepted"}
+
+@router.post("/tilda", status_code=status.HTTP_200_OK)
+async def create_lead_from_tilda_any(request: Request):
     try:
         payload = await request.json()
     except Exception:
-        payload = (await request.body()).decode("utf-8", errors="ignore")
-    logger.info("Tilda webhook payload accepted for testing: %s", payload)
+        try:
+            form = await request.form()
+            payload = dict(form)
+        except Exception:
+            raw = await request.body()
+            payload = raw.decode("utf-8", errors="ignore")
+
+    logger.info("Tilda payload: %s", payload)
     return {"status": "accepted"}

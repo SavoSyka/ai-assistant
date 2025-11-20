@@ -1,12 +1,14 @@
 import re
 from enum import Enum
-
+import os
 from openai import AsyncOpenAI
 
 from ..config import get_settings
 
 settings = get_settings()
 
+os.environ["http_proxy"] = "socks5h://127.0.0.1:1081"
+os.environ["https_proxy"] = "socks5h://127.0.0.1:1081"
 
 class IntentLabel(str, Enum):
     accept = "accept"
