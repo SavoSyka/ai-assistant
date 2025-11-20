@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import re
+import logging
 from typing import Any, Dict, Iterable, Sequence
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
 from ..db import get_session
@@ -11,6 +12,7 @@ from ..models import Lead
 from ..schemas import LeadCreate, LeadRead
 
 router = APIRouter(prefix="/leads", tags=["leads"])
+logger = logging.getLogger(__name__)
 
 
 class TildaField(BaseModel):
@@ -115,32 +117,11 @@ def create_lead(payload: LeadCreate) -> LeadRead:
     return _persist_lead(payload.name, phone, username)
 
 
-@router.post(
-    "/webhooks/tilda",
-    response_model=LeadRead,
-    status_code=status.HTTP_201_CREATED,
-)
-def create_lead_from_tilda(payload: TildaWebhookPayload) -> LeadRead:
-    values = _extract_fields(payload)
-
-    name = _match_field(values, ("name", "fullname", "имя", "ф.и.о", "fio"))
-    phone = _match_field(
-        values,
-        ("phone", "телефон", "tel", "mobile", "whatsapp"),
-    )
-    username = _match_field(
-        values,
-        ("username", "логин", "ник", "tg", "telegram", "telegram_username"),
-    )
-
-    if not name:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Не удалось распознать имя заявки из данных Tilda.",
-        )
-
-    if not phone:
-        phone = None
-
-    phone, username = _prepare_contact(phone, username)
-    return _persist_lead(name, phone, username)
+@router.post("/webhooks/tilda", status_code=status.HTTP_200_OK)
+async def create_lead_from_tilda(request: Request) -> dict[str, str]:
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = (await request.body()).decode("utf-8", errors="ignore")
+    logger.info("Tilda webhook payload accepted for testing: %s", payload)
+    return {"status": "accepted"}
