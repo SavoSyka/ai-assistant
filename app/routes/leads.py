@@ -135,7 +135,13 @@ async def create_lead_from_tilda(request: Request) -> dict[str, str]:
             raw = await request.body()
             payload = raw.decode("utf-8", errors="ignore")
 
-    logger.info("Tilda webhook payload: %s", payload)
+    client_addr = request.client.host if request.client else "unknown"
+    logger.info(
+        "Tilda webhook (%s) payload accepted from %s: %s",
+        request.url.path,
+        client_addr,
+        payload,
+    )
 
     # ВСЕГДА возвращаем 200 OK
     return {"status": "accepted"}
@@ -152,5 +158,11 @@ async def create_lead_from_tilda_any(request: Request):
             raw = await request.body()
             payload = raw.decode("utf-8", errors="ignore")
 
-    logger.info("Tilda payload: %s", payload)
+    client_addr = request.client.host if request.client else "unknown"
+    logger.info(
+        "Tilda endpoint %s payload accepted from %s: %s",
+        request.url.path,
+        client_addr,
+        payload,
+    )
     return {"status": "accepted"}
