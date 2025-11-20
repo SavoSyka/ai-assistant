@@ -12,7 +12,8 @@ from ..models import Lead
 from ..schemas import LeadCreate, LeadRead
 
 router = APIRouter(prefix="/leads", tags=["leads"])
-logger = logging.getLogger(__name__)
+# Логируем через uvicorn.error, чтобы сообщения было видно в docker-логах
+logger = logging.getLogger("uvicorn.error")
 
 
 class TildaField(BaseModel):
