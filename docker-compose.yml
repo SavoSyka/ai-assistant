@@ -6,6 +6,8 @@ services:
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
     ports:
       - "8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - .env
     environment:
@@ -28,6 +30,8 @@ services:
       TELEGRAM_SESSION_DIR: /sessions
     volumes:
       - ./sessions:/sessions
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       db:
         condition: service_healthy
