@@ -7,8 +7,9 @@ from ..config import get_settings
 
 settings = get_settings()
 
-os.environ["http_proxy"] = "socks5h://host.docker.internal:1081"
-os.environ["https_proxy"] = "socks5h://host.docker.internal:1081"
+# Прокси для контейнеров (отдельный xray-инстанс, напр. на 1082)
+os.environ["http_proxy"] = "socks5h://host.docker.internal:1082"
+os.environ["https_proxy"] = "socks5h://host.docker.internal:1082"
 
 class IntentLabel(str, Enum):
     accept = "accept"
@@ -94,16 +95,7 @@ class LeadConversationAI:
         return IntentLabel.ambiguous
 
     async def generate_greeting(self, name: str) -> str:
-        prompt = (
-            "Напиши короткое приветственное сообщение для лида GordovCode.\n"
-            "- укажи, что мы увидели его заявку на сайте GordovCode;\n"
-            "- уточни, действительно ли он оставлял заявкку и удобно ли ему обсудить задачу на коротком созвоне;\n"
-            "- не объясняй подробно чем занимается компания, максимум одно упоминание;\n"
-            "- стиль: 1-2 предложения, без эмодзи, без вставки ссылки.\n"
-            f"Имя лида: {name}.\n"
-            "Выведи только текст сообщения."
-        )
-        return await self._single_text_response(prompt)
+        return settings.greeting_template.format(name=name, calendly_link=settings.calendly_link)
 
     async def generate_rejection_reply(self, name: str | None = None) -> str:
         prompt = (

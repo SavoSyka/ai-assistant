@@ -56,7 +56,7 @@ class TelegramLeadService:
             greeting = await self._conversation_ai.generate_greeting(lead.name)
         except Exception:
             logger.exception("Failed to generate greeting via GPT for lead %s, using fallback", lead.id)
-            greeting = settings.greeting_template.format(name=lead.name)
+            greeting = settings.greeting_template.format(name=lead.name, calendly_link=settings.calendly_link)
 
         user, used_phone = await self._resolve_user_for_lead(lead)
         if not user:
