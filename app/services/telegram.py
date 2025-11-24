@@ -172,10 +172,12 @@ class TelegramLeadService:
             incoming_text = message.text or ""
             label = await self._conversation_ai.classify(incoming_text)
             if label == IntentLabel.accept:
-                await client.send_message(
-                    user_id,
-                    settings.acceptance_template.format(calendly_link=settings.calendly_link),
-                )
+                try:
+                    answer = await self._conversation_ai.answer_question(incoming_text, intent_hint=IntentLabel.accept)
+                except Exception:
+                    logger.exception("Failed to craft confirmation reply for lead %s", lead.id)
+                    answer = "Отлично! Тогда увидимся на созвоне. Если что, мы рядом и на связи."
+                await client.send_message(user_id, answer)
                 lead.status = LeadStatus.scheduled
             elif label == IntentLabel.reject:
                 try:
@@ -187,7 +189,7 @@ class TelegramLeadService:
                 lead.status = LeadStatus.rejected
             elif label == IntentLabel.question:
                 try:
-                    answer = await self._conversation_ai.answer_question(incoming_text)
+                    answer = await self._conversation_ai.answer_question(incoming_text, intent_hint=IntentLabel.question)
                 except Exception:
                     logger.exception("Failed to answer question for lead %s", lead.id)
                     answer = (
